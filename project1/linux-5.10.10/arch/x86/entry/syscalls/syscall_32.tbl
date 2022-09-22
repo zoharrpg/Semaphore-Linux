@@ -445,3 +445,7 @@
 438	i386	pidfd_getfd		sys_pidfd_getfd
 439	i386	faccessat2		sys_faccessat2
 440	i386	process_madvise		sys_process_madvise
+441 i386    cs1550          sys_cs1550_create
+442 i386    cs1550          sys_cs1550_down
+443 i386    cs1550          sys_cs1550_up
+444 i386    cs1550          sys_cs1550_close

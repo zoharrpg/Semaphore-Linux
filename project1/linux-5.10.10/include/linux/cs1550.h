@@ -17,6 +17,11 @@ struct cs1550_sem
 
 	/* Per-semaphore lock, serializes access to value */
 	spinlock_t lock;
+	
+	struct list_head list;
+
+
+	
 };
 
 #endif
