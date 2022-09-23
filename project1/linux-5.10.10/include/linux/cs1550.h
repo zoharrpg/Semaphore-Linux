@@ -20,8 +20,19 @@ struct cs1550_sem
 	
 	struct list_head list;
 
+	struct list_head waiting_tasks;
+
+
+
 
 	
+};
+
+struct cs1550_task{
+	struct list_head list;
+	struct task_struct *task;
+
+
 };
 
 #endif

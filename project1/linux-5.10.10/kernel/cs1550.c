@@ -7,6 +7,12 @@
 #include <linux/slab.h>
 #include <linux/cs1550.h>
 
+static DEFINE_RWLOCK(sem_rwlock);
+
+static LIST_HEAD(sem_list);
+
+static long count=0;
+
 /**
  * Creates a new semaphore. The long integer value is used to
  * initialize the semaphore's value.
@@ -21,7 +27,61 @@
  */
 SYSCALL_DEFINE1(cs1550_create, long, value)
 {
-	return -1;
+	/*
+	If value is invalid,
+	return -EINVAL
+	*/
+	if(value<0)
+	{
+		return -EINVAL;
+	}
+
+	struct cs1550_sem * sem = kmalloc(sizeof(struct cs1550_sem),GFP_ATOMIC);
+
+	/*
+	If cannot allocate memeory, return -ENOMEM
+	*/
+	if(sem==NULL)
+	{
+		return -ENOMEM;
+	}
+
+	// Increament id
+	count++;
+
+	sem->value=value;
+	sem->sem_id=count;
+
+	
+	
+
+	spin_lock_init(&sem->lock);
+	
+	INIT_LIST_HEAD(&sem->list);
+	
+	INIT_HLIST_HEAD(&sem->waiting_tasks);
+
+	struct cs1550_task* task_node=kmalloc(sizeof(struct cs1550_task),GFP_ATOMIC);
+	INIT_LIST_HEAD(&task_node->list);
+
+	task_node->task=current;
+
+
+	
+	
+
+	write_lock(&sem_rwlock);
+		
+		list_add(&sem->list,&sem_list);
+
+
+	write_unlock(&sem_rwlock);
+
+
+
+	
+
+	return sem->sem_id;
 }
 
 /**
@@ -38,6 +98,17 @@ SYSCALL_DEFINE1(cs1550_create, long, value)
  */
 SYSCALL_DEFINE1(cs1550_down, long, sem_id)
 {
+	if(sem_id<0)
+	{
+		return -EINVAL;
+	}
+
+	read_lock(&sem_list);
+		list_for_each_entry()
+
+	read_unlock(&sem_list);
+
+
 	return -1;
 }
 
@@ -68,5 +139,7 @@ SYSCALL_DEFINE1(cs1550_up, long, sem_id)
  */
 SYSCALL_DEFINE1(cs1550_close, long, sem_id)
 {
+
+
 	return -1;
 }
