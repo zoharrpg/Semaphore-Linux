@@ -54,17 +54,27 @@ SYSCALL_DEFINE1(cs1550_create, long, value)
 
 	
 	
-
+	/*Initialization sem struct*/
 	spin_lock_init(&sem->lock);
 	
 	INIT_LIST_HEAD(&sem->list);
 	
 	INIT_HLIST_HEAD(&sem->waiting_tasks);
 
-	struct cs1550_task* task_node=kmalloc(sizeof(struct cs1550_task),GFP_ATOMIC);
-	INIT_LIST_HEAD(&task_node->list);
 
-	task_node->task=current;
+
+	/*Initialization task sturct*/
+
+	// struct cs1550_task* task_node=kmalloc(sizeof(struct cs1550_task),GFP_ATOMIC);
+	// INIT_LIST_HEAD(&task_node->list);
+
+	// task_node->task=current;
+
+
+
+	/*add task to queue*/
+
+	// list_add_tail(&task_node->list,&sem->waiting_tasks);
 
 
 	
@@ -98,18 +108,69 @@ SYSCALL_DEFINE1(cs1550_create, long, value)
  */
 SYSCALL_DEFINE1(cs1550_down, long, sem_id)
 {
-	if(sem_id<0)
-	{
-		return -EINVAL;
-	}
+	
 
-	read_lock(&sem_list);
-		list_for_each_entry()
+	read_lock(&sem_rwlock);
+		
+		struct cs1550_sem *sem=NULL;
+		list_for_each_entry(sem,&sem_list,list){
+			if(sem->sem_id==sem_id)
+			{
+				spin_lock(&sem->lock);
+					sem->value--;
+					if(sem->value<0){
+						struct cs1550_task* task_node=kmalloc(sizeof(struct cs1550_task),GFP_ATOMIC);
+						if(task_node==NULL)
+						{
+							spin_unlock(&sem->lock);
+							read_lock(&sem_rwlock);
+							return -ENOMEM;
+						}
+						INIT_LIST_HEAD(&task_node->list);
+						task_node->task=current;
+						list_add_tail(&task_node->list,&sem->waiting_tasks);
+						set_current_state(TASK_INTERRUPTIBLE);
+						spin_unlock(&sem->lock);
+						schedule();
 
-	read_unlock(&sem_list);
 
 
-	return -1;
+
+
+					}else
+					{
+				spin_unlock(&sem->lock);
+
+
+					}
+
+					read_unlock(&sem_rwlock);
+					return 0;
+					
+					
+
+				
+
+
+
+				
+			}
+
+
+
+
+
+
+		}
+
+
+
+
+
+	read_unlock(&sem_rwlock);
+
+
+	return -EINVAL;
 }
 
 /**
@@ -126,7 +187,47 @@ SYSCALL_DEFINE1(cs1550_down, long, sem_id)
  */
 SYSCALL_DEFINE1(cs1550_up, long, sem_id)
 {
-	return -1;
+	read_lock(&sem_rwlock);
+	
+		struct cs1550_sem *sem=NULL;
+		list_for_each_entry(sem,&sem_list,list)
+		{
+			if(sem->sem_id==sem_id)
+			{
+
+				spin_lock(&sem->lock);
+				sem->value++;
+
+				if(sem->value<=0)
+				{
+					struct cs1550_task* task_node=list_first_entry(&sem->waiting_tasks,struct cs1550_task,list);
+
+					list_del(&task_node->list);
+					wake_up_process(task_node->task);
+
+
+
+
+				}
+
+				spin_unlock(&sem->lock);
+
+				read_unlock(&sem_rwlock);
+				return 0;
+
+				
+			}
+
+
+
+
+		}
+
+
+
+	read_unlock(&sem_rwlock);
+	
+	return -EINVAL;
 }
 
 /**
@@ -140,6 +241,52 @@ SYSCALL_DEFINE1(cs1550_up, long, sem_id)
 SYSCALL_DEFINE1(cs1550_close, long, sem_id)
 {
 
+	write_lock(&sem_rwlock);
+	struct cs1550_sem *sem=NULL;
+	list_for_each_entry(sem,&sem_list,list)
+	{
+		if(sem->sem_id==sem_id)
+		{
+			spin_lock(&sem->lock);
+			if(list_empty(&sem->waiting_tasks))
+			{
+				list_del(&sem->list);
+				spin_unlock(&sem->lock);
+				kfree(sem);
+				write_unlock(&sem_rwlock);
 
-	return -1;
+				return 0;
+
+
+
+			}
+			else
+			{
+				spin_unlock(&sem->lock);
+				
+				write_unlock(&sem_rwlock);
+				return -EINVAL;
+
+			}
+
+		}
+	}
+
+
+
+
+
+
+	write_unlock(&sem_rwlock);
+
+
+
+
+
+
+
+
+
+
+	return -EINVAL;
 }
