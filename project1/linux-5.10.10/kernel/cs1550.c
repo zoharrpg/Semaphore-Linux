@@ -59,7 +59,7 @@ SYSCALL_DEFINE1(cs1550_create, long, value)
 	
 	INIT_LIST_HEAD(&sem->list);
 	
-	INIT_HLIST_HEAD(&sem->waiting_tasks);
+	INIT_LIST_HEAD(&sem->waiting_tasks);
 
 
 
