@@ -79,6 +79,7 @@ SYSCALL_DEFINE1(cs1550_create, long, value)
 
 	
 	
+	/*Add sem to sem_list*/
 
 	write_lock(&sem_rwlock);
 		
@@ -113,6 +114,8 @@ SYSCALL_DEFINE1(cs1550_down, long, sem_id)
 	read_lock(&sem_rwlock);
 		
 		struct cs1550_sem *sem=NULL;
+
+		/* find sem in sem_list*/
 		list_for_each_entry(sem,&sem_list,list){
 			if(sem->sem_id==sem_id)
 			{
@@ -204,6 +207,8 @@ SYSCALL_DEFINE1(cs1550_up, long, sem_id)
 
 					list_del(&task_node->list);
 					wake_up_process(task_node->task);
+
+					kfree(task_node);
 
 
 
