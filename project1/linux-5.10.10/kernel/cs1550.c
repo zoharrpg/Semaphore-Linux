@@ -7,10 +7,14 @@
 #include <linux/slab.h>
 #include <linux/cs1550.h>
 
+
+/*RW lock*/
 static DEFINE_RWLOCK(sem_rwlock);
 
+/*Global semaphore list*/
 static LIST_HEAD(sem_list);
 
+/*Count of semaphore and ID*/
 static long count=0;
 
 /**
@@ -46,8 +50,7 @@ SYSCALL_DEFINE1(cs1550_create, long, value)
 		return -ENOMEM;
 	}
 
-	// Increament id
-	count++;
+
 
 	sem->value=value;
 	sem->sem_id=count;
@@ -63,26 +66,17 @@ SYSCALL_DEFINE1(cs1550_create, long, value)
 
 
 
-	/*Initialization task sturct*/
+	
 
-	// struct cs1550_task* task_node=kmalloc(sizeof(struct cs1550_task),GFP_ATOMIC);
-	// INIT_LIST_HEAD(&task_node->list);
-
-	// task_node->task=current;
-
-
-
-	/*add task to queue*/
-
-	// list_add_tail(&task_node->list,&sem->waiting_tasks);
 
 
 	
-	
-	/*Add sem to sem_list*/
 
 	write_lock(&sem_rwlock);
+		/*Increament count for id*/
+			count++;
 		
+		/*add semaphore to the list*/
 		list_add(&sem->list,&sem_list);
 
 
@@ -117,21 +111,33 @@ SYSCALL_DEFINE1(cs1550_down, long, sem_id)
 
 		/* find sem in sem_list*/
 		list_for_each_entry(sem,&sem_list,list){
+
+			/*If found the semaphore*/
 			if(sem->sem_id==sem_id)
 			{
+			
 				spin_lock(&sem->lock);
+
+					/*Decrease the semaphore value*/
 					sem->value--;
 					if(sem->value<0){
 						struct cs1550_task* task_node=kmalloc(sizeof(struct cs1550_task),GFP_ATOMIC);
+
+						/*IF malloc fail, return -ENOMEM*/
 						if(task_node==NULL)
 						{
 							spin_unlock(&sem->lock);
 							read_lock(&sem_rwlock);
 							return -ENOMEM;
 						}
+						/*Initialize Task struct*/
 						INIT_LIST_HEAD(&task_node->list);
 						task_node->task=current;
+
+						/*Add task to the queue*/
 						list_add_tail(&task_node->list,&sem->waiting_tasks);
+
+						/*make current process sleep*/
 						set_current_state(TASK_INTERRUPTIBLE);
 						spin_unlock(&sem->lock);
 						schedule();
@@ -193,16 +199,21 @@ SYSCALL_DEFINE1(cs1550_up, long, sem_id)
 	read_lock(&sem_rwlock);
 	
 		struct cs1550_sem *sem=NULL;
+
+		/*Find sem in sem_list*/
 		list_for_each_entry(sem,&sem_list,list)
 		{
+			/*If found the list*/
 			if(sem->sem_id==sem_id)
 			{
 
 				spin_lock(&sem->lock);
+				/*Increase the value*/
 				sem->value++;
 
 				if(sem->value<=0)
 				{
+					/*wake up the process in the task list*/
 					struct cs1550_task* task_node=list_first_entry(&sem->waiting_tasks,struct cs1550_task,list);
 
 					list_del(&task_node->list);
@@ -250,11 +261,14 @@ SYSCALL_DEFINE1(cs1550_close, long, sem_id)
 	struct cs1550_sem *sem=NULL;
 	list_for_each_entry(sem,&sem_list,list)
 	{
+		/*Found semaphore*/
 		if(sem->sem_id==sem_id)
 		{
 			spin_lock(&sem->lock);
+			/*If the task list is empty*/
 			if(list_empty(&sem->waiting_tasks))
 			{
+				/*delete the semaphore from sem_list */
 				list_del(&sem->list);
 				spin_unlock(&sem->lock);
 				kfree(sem);

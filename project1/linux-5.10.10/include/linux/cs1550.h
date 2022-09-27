@@ -18,8 +18,9 @@ struct cs1550_sem
 	/* Per-semaphore lock, serializes access to value */
 	spinlock_t lock;
 	
+	/*sem_list*/
 	struct list_head list;
-
+	/*Task list*/
 	struct list_head waiting_tasks;
 
 
@@ -29,7 +30,11 @@ struct cs1550_sem
 };
 
 struct cs1550_task{
+
+	/*Task list*/
 	struct list_head list;
+
+	/*Task pinter*/
 	struct task_struct *task;
 
 
